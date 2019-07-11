@@ -1,0 +1,19 @@
+{
+  "name": "poc-diff-producer-service",
+  "version": "0.0.0",
+  "description": "Microservice to produce delta files",
+  "dependencies": {
+    "@lblod/mu-auth-sudo": "^0.2.0",
+    "fs-extra": "^8.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/redpencilio/poc-diff-producer-service.git"
+  },
+  "author": "redpencil.io",
+  "license": "MIT"
+}
