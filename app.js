@@ -1,5 +1,5 @@
 // see https://github.com/mu-semtech/mu-javascript-template for more info
-import { app, errorHandler, uuid, sparqlEscapeDate } from 'mu';
+import { app, errorHandler, uuid, sparqlEscapeDateTime } from 'mu';
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import fs from 'fs-extra';
 import bodyParser from 'body-parser';
@@ -26,6 +26,40 @@ app.post('/delta', function( req, res ) {
   res.status(200).send("Processed");
 } );
 
+app.get('/files', async function( req, res ) {
+  const since = req.query.since || new Date().toISOString();
+  console.log(`Retrieving delta files since ${since}`);
+
+  const result = await query(`
+    PREFIX mu: <http://mu.semte.ch/vocabularies/core/>
+    PREFIX nfo: <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#>
+    PREFIX nie: <http://www.semanticdesktop.org/ontologies/2007/01/19/nie#>
+    PREFIX dct: <http://purl.org/dc/terms/>
+
+    SELECT ?uuid ?filename WHERE {
+      ?s a nfo:FileDataObject ;
+          mu:uuid ?uuid ;
+          nfo:fileName ?filename ;
+          dct:publisher <http://mu.semte.ch/services/poc-diff-producer-service> ;
+          dct:created ?created .
+      ?file nie:dataSource ?s .
+
+      FILTER (?created >= "${since}"^^xsd:dateTime)
+    }
+  `);
+
+  const files = result.results.bindings.map(b => {
+    return {
+      type: 'files',
+      id: b['uuid'].value,
+      attributes: {
+        name: b['filename'].value
+      }
+    };
+  });
+
+  res.json({ data: files });
+} );
 
 function triggerTimeout(){
   setTimeout( generateDeltaFile, DELTA_INTERVAL );
@@ -53,7 +87,7 @@ async function generateDeltaFile(){
 async function writeFileToStore(filename, filepath) {
   const virtualFileUuid = uuid();
   const virtualFileUri = `http://mu.semte.ch/services/poc-diff-producer-service/files/${virtualFileUuid}`;
-  const now = new Date();
+  const nowLiteral = sparqlEscapeDateTime(new Date());
   const physicalFileUuid = uuid();
   const physicalFileUri = `share://${filename}`;
 
@@ -71,17 +105,17 @@ async function writeFileToStore(filename, filepath) {
           nfo:fileName "${filename}" ;
           dct:format "application/json" ;
           dbpedia:fileExtension "json" ;
-          dct:created ${sparqlEscapeDate(now)} ;
-          dct:modified ${sparqlEscapeDate(now)} ;
-          dct:publisher <http://mu.semte.ch/services/oc-diff-producer-service> .
+          dct:created ${nowLiteral} ;
+          dct:modified ${nowLiteral} ;
+          dct:publisher <http://mu.semte.ch/services/poc-diff-producer-service> .
         <${physicalFileUri}> a nfo:FileDataObject ;
           mu:uuid "${physicalFileUuid}" ;
           nie:dataSource <${virtualFileUri}> ;
           nfo:fileName "${filename}" ;
           dct:format "application/json" ;
           dbpedia:fileExtension "json" ;
-          dct:created ${sparqlEscapeDate(now)} ;
-          dct:modified ${sparqlEscapeDate(now)} .
+          dct:created ${nowLiteral} ;
+          dct:modified ${nowLiteral} .
       }
     }
   `);
