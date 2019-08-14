@@ -36,7 +36,7 @@ app.get('/files', async function( req, res ) {
     PREFIX nie: <http://www.semanticdesktop.org/ontologies/2007/01/19/nie#>
     PREFIX dct: <http://purl.org/dc/terms/>
 
-    SELECT ?uuid ?filename WHERE {
+    SELECT ?uuid ?filename ?created WHERE {
       ?s a nfo:FileDataObject ;
           mu:uuid ?uuid ;
           nfo:fileName ?filename ;
@@ -44,8 +44,8 @@ app.get('/files', async function( req, res ) {
           dct:created ?created .
       ?file nie:dataSource ?s .
 
-      FILTER (?created >= "${since}"^^xsd:dateTime)
-    }
+      FILTER (?created > "${since}"^^xsd:dateTime)
+    } ORDER BY ?created
   `);
 
   const files = result.results.bindings.map(b => {
@@ -53,7 +53,8 @@ app.get('/files', async function( req, res ) {
       type: 'files',
       id: b['uuid'].value,
       attributes: {
-        name: b['filename'].value
+        name: b['filename'].value,
+        created: b['created'].value
       }
     };
   });
