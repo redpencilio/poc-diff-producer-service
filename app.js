@@ -90,9 +90,10 @@ function triggerTimeout(){
   hasTimeout = true;
 }
 
-async function generateDeltaFile(){
+async function generateDeltaFile() {
   const cachedArray = cache;
   cache = [];
+  minDelta = cachedArray[cachedArray.length-1].index;
 
   hasTimeout = false;
 
