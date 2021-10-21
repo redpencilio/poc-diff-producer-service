@@ -7,17 +7,40 @@ import bodyParser from 'body-parser';
 app.use( bodyParser.json( { type: function(req) { return /^application\/json/.test( req.get('content-type') ); } } ) );
 
 const DELTA_INTERVAL = process.env.DELTA_INTERVAL_MS || 1000;
+//const CACHE_SIZE = process.env.CACHE_SIZE || 1000;
 const shareFolder = '/share';
 
 let cache = [];
-let hasTimeout = null;
+let minDelta = 0; // Highest delta number which has been written to a file
+let hasTimeout = false;
 
 app.post('/delta', function( req, res ) {
   const body = req.body;
 
   console.log(`Pushing onto cache ${JSON.stringify(body)}`);
 
-  cache.push( ...body );
+  for(const delta of body) {
+    // If the index is less than what we've already put out, we consider it lost
+    // TODO: Keep a longer cache, including already-pushed deltas, to issue corrections
+    if(delta.index < minDelta) {
+      continue;
+    }
+
+    // Either insert at the end, or splice in earlier if needed
+    if(cache.length == 0 || delta.index > cache[cache.length-1].index) {
+      cache.push( delta );
+    } else {
+      let i = cache.length-1;
+      while(cache[i].index > delta.index) {
+        i = i - 1;
+      }
+      cache.splice(i, 0, delta );
+    }
+  }
+
+  //if(cache.length > CACHE_SIZE) {
+  //  cache.shift();
+  //}
 
   if( !hasTimeout ){
     triggerTimeout();
@@ -67,9 +90,10 @@ function triggerTimeout(){
   hasTimeout = true;
 }
 
-async function generateDeltaFile(){
+async function generateDeltaFile() {
   const cachedArray = cache;
   cache = [];
+  minDelta = cachedArray[cachedArray.length-1].index;
 
   hasTimeout = false;
 
